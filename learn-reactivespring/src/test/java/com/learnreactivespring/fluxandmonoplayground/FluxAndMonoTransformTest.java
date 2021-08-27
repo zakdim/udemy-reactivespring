@@ -4,8 +4,11 @@ import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
+import java.lang.reflect.Array;
 import java.util.Arrays;
 import java.util.List;
+
+import static reactor.core.scheduler.Schedulers.parallel;
 
 /**
  * Créé par dmitri le 2021-08-27.
@@ -61,6 +64,59 @@ public class FluxAndMonoTransformTest {
 
         StepVerifier.create(namesFlux)
                 .expectNext("JENNY")
+                .verifyComplete();
+    }
+
+    @Test
+    public void transformUsingFlatMap() {
+
+        Flux<String> stringFlux = Flux.fromIterable(Arrays.asList("A", "B", "C", "D", "E", "F")) // A,B,C,D,E,F
+                .flatMap(s -> { // db or external service call that returns a flux -> s -> Flux<String>
+                    return Flux.fromIterable(convertToList(s)); // A -> List[A, newValue], B -> List[B, newValue], ...
+                })
+                .log();
+
+        StepVerifier.create(stringFlux)
+                .expectNextCount(12)
+                .verifyComplete();
+    }
+
+    private List<String> convertToList(String s) {
+
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+        return Arrays.asList(s, "newValue");
+    }
+
+    @Test
+    public void transformUsingFlatMap_usingParallel() {
+
+        Flux<String> stringFlux = Flux.fromIterable(Arrays.asList("A", "B", "C", "D", "E", "F")) // Flux<String>
+                .window(2) // Flux<Flux<String>> -> (A,B), (C,D), (E,F)
+                .flatMap((s) -> s.map(this::convertToList).subscribeOn(parallel())) // Flux<List<String>>
+                .flatMap(s -> Flux.fromIterable(s)) // Flux<String>
+                .log();
+
+        StepVerifier.create(stringFlux)
+                .expectNextCount(12)
+                .verifyComplete();
+    }
+
+    @Test
+    public void transformUsingFlatMap_parallel_maintain_order() {
+
+        Flux<String> stringFlux = Flux.fromIterable(Arrays.asList("A", "B", "C", "D", "E", "F")) // Flux<String>
+                .window(2) // Flux<Flux<String>> -> (A,B), (C,D), (E,F)
+//                .concatMap((s) -> s.map(this::convertToList).subscribeOn(parallel())) // Flux<List<String>>
+                .flatMapSequential((s) -> s.map(this::convertToList).subscribeOn(parallel())) // Flux<List<String>>
+                .flatMap(s -> Flux.fromIterable(s)) // Flux<String>
+                .log();
+
+        StepVerifier.create(stringFlux)
+                .expectNextCount(12)
                 .verifyComplete();
     }
 }
