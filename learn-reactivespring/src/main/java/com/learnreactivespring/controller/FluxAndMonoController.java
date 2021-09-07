@@ -21,12 +21,11 @@ public class FluxAndMonoController {
                 .log();
     }
 
-//    @GetMapping(value = "/fluxstream", produces = MediaType.APPLICATION_STREAM_JSON_VALUE)
-    @GetMapping(value = "/fluxstream", produces = MediaType.APPLICATION_NDJSON_VALUE)
-    public Flux<Integer> returnFluxStream() {
+    @GetMapping(value = "/fluxstream", produces = MediaType.APPLICATION_STREAM_JSON_VALUE)
+//    @GetMapping(value = "/fluxstream", produces = MediaType.APPLICATION_NDJSON_VALUE)
+    public Flux<Long> returnFluxStream() {
 
-        return Flux.just(1, 2, 3, 4)
-                .delayElements(Duration.ofSeconds(1))
+        return Flux.interval(Duration.ofSeconds(1))
                 .log();
     }
 }
